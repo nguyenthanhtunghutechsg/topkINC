@@ -1,22 +1,22 @@
-package TKHUI_INC_EUCS;
+package TK_INC;
 
 /* This file is copyright (c) 2008-2015 Philippe Fournier-Viger
-* 
-* This file is part of the SPMF DATA MINING SOFTWARE
-* (http://www.philippe-fournier-viger.com/spmf).
-* 
-* SPMF is free software: you can redistribute it and/or modify it under the
-* terms of the GNU General Public License as published by the Free Software
-* Foundation, either version 3 of the License, or (at your option) any later
-* version.
-* 
-* SPMF is distributed in the hope that it will be useful, but WITHOUT ANY
-* WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
-* A PARTICULAR PURPOSE. See the GNU General Public License for more details.
-* You should have received a copy of the GNU General Public License along with
-* SPMF. If not, see <http://www.gnu.org/licenses/>.
-* 
-*/
+ *
+ * This file is part of the SPMF DATA MINING SOFTWARE
+ * (http://www.philippe-fournier-viger.com/spmf).
+ *
+ * SPMF is free software: you can redistribute it and/or modify it under the
+ * terms of the GNU General Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option) any later
+ * version.
+ *
+ * SPMF is distributed in the hope that it will be useful, but WITHOUT ANY
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
+ * A PARTICULAR PURPOSE. See the GNU General Public License for more details.
+ * You should have received a copy of the GNU General Public License along with
+ * SPMF. If not, see <http://www.gnu.org/licenses/>.
+ *
+ */
 
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
@@ -43,7 +43,7 @@ import java.util.PriorityQueue;
  * This is an implementation of the "FHM" algorithm for High-Utility Itemsets
  * Mining as described in the conference paper : <br/>
  * <br/>
- * 
+ *
  * Fournier-Viger, P., Wu, C.-W., Zida, S., Tseng, V. (2014) FHM: A Faster
  * High-Utility Itemset Mining Algorithm using Estimated Utility Co-occurrence
  * Pruning. Proc. 21st International Symposium on Methodologies for Intelligent
@@ -73,7 +73,7 @@ public class AlgoTopKINC_EUCS {
 
 	/** The eucs structure: key: item key: another item value: twu */
 	Map<Integer, Map<Integer, PairItem>> mapEUCS;
-	
+
 	Map<Integer, Map<Integer, Long>> mapLeafMAP = null;
 	PriorityQueue<Long> leafPruneUtils = null;
 
@@ -108,7 +108,7 @@ public class AlgoTopKINC_EUCS {
 
 	/**
 	 * Run the algorithm
-	 * 
+	 *
 	 * @param input      the input file path
 	 * @param output     the output file path
 	 * @param minUtility the minimum utility threshold
@@ -221,10 +221,10 @@ public class AlgoTopKINC_EUCS {
 							if (pairItem == null) {
 								pairItem = new PairItem();
 								pairItem.twu = transactionUtility;
-								pairItem.utility =  utilityI+itemObjJ.utility;								
+								pairItem.utility =  utilityI+itemObjJ.utility;
 							} else {
 								pairItem.twu = pairItem.twu+transactionUtility;
-								pairItem.utility =  pairItem.utility+utilityI+itemObjJ.utility;							
+								pairItem.utility =  pairItem.utility+utilityI+itemObjJ.utility;
 							}
 							mapEUCSItem.put(ItemAfter,pairItem);
 						}
@@ -245,8 +245,8 @@ public class AlgoTopKINC_EUCS {
 							leafItem += cutil;
 							mapLeafItem.put(itemObjJ.item,leafItem);
 						}
-						
-					}			
+
+					}
 					totalDBUtility += transactionUtility;
 				}
 				tid++;
@@ -288,8 +288,8 @@ public class AlgoTopKINC_EUCS {
 				}
 			}
 		}
-		
-		
+
+
 		List<Integer> listAllItem = new ArrayList<>(mapItemToUtilityList.keySet());
 		listAllItem.sort(new Comparator<Integer>() {
 			@Override
@@ -299,8 +299,8 @@ public class AlgoTopKINC_EUCS {
 			}
 		});
 		raisingThresholdLeaf(listAllItem);
-		
-		
+
+
 		first_min_utility = min_utility;
 		List<UtilityList> listOfUtilityLists = new ArrayList<UtilityList>();
 		for (Entry<Integer, UtilityList> entry : mapItemToUtilityList.entrySet()) {
@@ -341,7 +341,7 @@ public class AlgoTopKINC_EUCS {
 
 	/**
 	 * Method to compare items by their TWU
-	 * 
+	 *
 	 * @param item1 an item
 	 * @param item2 another item
 	 * @return 0 if the same item, >0 if item1 is larger than item2, <0 otherwise
@@ -361,14 +361,14 @@ public class AlgoTopKINC_EUCS {
 			} while (leafPruneUtils.size() > k);
 		}
 	}
-	
+
 	public int getTWUindex(int item, List<UtilityList> ULs) {
 		for (int i = ULs.size() - 1; i >= 0; i--)
 			if (ULs.get(i).item == item)
 				return i;
 		return -1;
 	}
-	
+
 	public void raisingThresholdLeaf(List<Integer> AllItemToUtilityList) {//all sort item in UL
 		long LIU = 0L;
 		// LIU-Exact
@@ -380,9 +380,6 @@ public class AlgoTopKINC_EUCS {
 				}
 			}
 		}
-		
-
-		
 		List<Integer> keySet = new ArrayList<>(mapLeafMAP.keySet());
 		keySet.sort(new Comparator<Integer>() {
 			@Override
@@ -407,43 +404,55 @@ public class AlgoTopKINC_EUCS {
 				long value2 = value.get(key2);
 				LIU = value2;
 				if(LIU>min_utility) {
-					
+					long LIU2 = 0l;
+					for (int l = 0; l < AllItemToUtilityList.size(); l++) {
+						int itemL = AllItemToUtilityList.get(l);
+						if(itemL<=key){
+							continue;
+						}
+						if(itemL>=key2){
+							break;
+						}
+						LIU2 = LIU-mapItemToUtilityList.get(itemL).sumIutils;
+						if(LIU2>min_utility){
+							addToLeafPruneUtils(LIU2);
+							for (int m = l+1; m < AllItemToUtilityList.size(); m++) {
+								int itemM = AllItemToUtilityList.get(m);
+								if(itemM<=key){
+									continue;
+								}
+								if(itemM>=key2){
+									break;
+								}
+								LIU2 = LIU2-mapItemToUtilityList.get(itemM).sumIutils;
+								if(LIU2>min_utility){
+									addToLeafPruneUtils(LIU2);
+									for (int  n = l+1; n < AllItemToUtilityList.size(); n++) {
+										int itemN = AllItemToUtilityList.get(n);
+										if(itemN<=key){
+											continue;
+										}
+										if(itemN>=key2){
+											break;
+										}
+										LIU2 = LIU2-mapItemToUtilityList.get(itemN).sumIutils;
+										if(LIU2>min_utility){
+											addToLeafPruneUtils(LIU2);
+										}
+									}
+								}
+							}
+						}
+					}
 				}
 			}
 		}
-		// LIU-LB
-//		for (Entry<Integer, Map<Integer, Long>> entry : mapLeafMAP.entrySet()) {
-//			for (Entry<Integer, Long> entry2 : entry.getValue().entrySet()) {
-//				value = entry2.getValue();
-//				if (value >= min_utility) {
-//					
-//					int end = entry.getKey() + 1;
-//					int st = entry2.getKey();
-//					long value2 = 0L;				
-//					for (int i = st + 1; i < end - 1; i++) {
-//						value2 = value - ULs.get(i).getUtils();
-//						if (value2 >= minUtility)
-//							addToLeafPruneUtils(value2);
-//						for (int j = i + 1; j < end - 1; j++) {
-//							value2 = value - ULs.get(i).getUtils() - ULs.get(j).getUtils();
-//							if (value2 >= minUtility)
-//								addToLeafPruneUtils(value2);
-//							for (int k = j + 1; k + 1 < end - 1; k++) {
-//								value2 = value - ULs.get(i).getUtils() - ULs.get(j).getUtils() - ULs.get(k).getUtils();
-//								if (value2 >= minUtility)
-//									addToLeafPruneUtils(value2);
-//							}
-//						}
-//					}
-//				}
-//			}
-//		}
 		for (Entry<Integer, UtilityList> entry : mapItemToUtilityList.entrySet()) {
 			long utilitySingleItem = entry.getValue().sumIutils;
 			if(utilitySingleItem>min_utility) {
 				addToLeafPruneUtils(utilitySingleItem);
 			}
-		}		
+		}
 		if ((leafPruneUtils.size() > k - 1) && (leafPruneUtils.peek() > min_utility))
 			min_utility = leafPruneUtils.peek();
 	}
@@ -451,13 +460,12 @@ public class AlgoTopKINC_EUCS {
 	/**
 	 * This is the recursive method to find all high utility itemsets. It writes the
 	 * itemsets to the output file.
-	 * 
+	 *
 	 * @param prefix       This is the current prefix. Initially, it is empty.
 	 * @param pUL          This is the Utility List of the prefix. Initially, it is
 	 *                     empty.
 	 * @param ULs          The utility lists corresponding to each extension of the
 	 *                     prefix.
-	 * @param minUtility   The minUtility threshold.
 	 * @param prefixLength The current prefix length
 	 * @throws IOException
 	 */
@@ -523,7 +531,7 @@ public class AlgoTopKINC_EUCS {
 
 	/**
 	 * This method constructs the utility list of pXY
-	 * 
+	 *
 	 * @param P  : the utility list of prefix P.
 	 * @param px : the utility list of pX
 	 * @param py : the utility list of pY
@@ -577,7 +585,7 @@ public class AlgoTopKINC_EUCS {
 
 	/**
 	 * Do a binary search to find the element with a given tid in a utility list
-	 * 
+	 *
 	 * @param ulist the utility list
 	 * @param tid   the tid
 	 * @return the element or null if none has the tid.
@@ -597,7 +605,7 @@ public class AlgoTopKINC_EUCS {
 				first = middle + 1; // the itemset compared is larger than the subset according to the lexical order
 			} else if (list.get(middle).tid > tid) {
 				last = middle - 1; // the itemset compared is smaller than the subset is smaller according to the
-									// lexical order
+				// lexical order
 			} else {
 				return list.get(middle);
 			}
@@ -607,7 +615,7 @@ public class AlgoTopKINC_EUCS {
 
 	/**
 	 * Method to write a high utility itemset to the output file.
-	 * 
+	 *
 	 * @param the          prefix to be writent o the output file
 	 * @param an           item to be appended to the prefix
 	 * @param utility      the utility of the prefix concatenated with the item
@@ -649,7 +657,7 @@ public class AlgoTopKINC_EUCS {
 
 	/**
 	 * Print statistics about the latest execution to System.out.
-	 * 
+	 *
 	 * @throws IOException
 	 */
 	public void printStats() throws IOException {
@@ -688,7 +696,7 @@ public class AlgoTopKINC_EUCS {
 
 	/**
 	 * Get the size of a Java object (for debugging purposes)
-	 * 
+	 *
 	 * @param object the object
 	 * @return the size in MB
 	 * @throws IOException
