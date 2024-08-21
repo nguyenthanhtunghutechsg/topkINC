@@ -36,12 +36,12 @@ public class MainTestTopKINC_EUCS {
 				if (i == numberOfUpdates) {
 					System.out.println("" + (i + 1) + ") Run the algorithm using line " + firstLine + " to before line "
 							+ linecount + " of the input database.");
-					 algo.runAlgorithm(input, output, k, firstLine, linecount);
+					 algo.runAlgorithm(input, output, k, firstLine, linecount,true);
 				} else {
 					// If this is not the last update
 					System.out.println("" + (i + 1) + ") Run the algorithm using line " + firstLine + " to before line "
 							+ lastLine + " of the input database.");
-					 algo.runAlgorithm(input, output, k, firstLine, lastLine);
+					 algo.runAlgorithm(input, output, k, firstLine, lastLine,true);
 				}
 				algo.printStats();
 

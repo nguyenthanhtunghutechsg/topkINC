@@ -72,7 +72,10 @@ public class AlgoTopKINC_EUCS {
 	BufferedWriter writer = null;
 
 	/** The eucs structure: key: item key: another item value: twu */
-	Map<Integer, Map<Integer, PairItem>> mapEUCSLeaf;
+	Map<Integer, Map<Integer, PairItem>> mapEUCS;
+	
+	Map<Integer, Map<Integer, Long>> mapLeafMAP = null;
+	PriorityQueue<Long> leafPruneUtils = null;
 
 	/** enable LA-prune strategy */
 	boolean ENABLE_LA_PRUNE = true;
@@ -120,29 +123,28 @@ public class AlgoTopKINC_EUCS {
 	Map<Integer, Integer> mapItemToUtility;
 	PriorityQueue<Itemset> kItemsets;
 	boolean EUCS_PRUNING;
-	boolean LEAF_PRUNING;
 
-	public void runAlgorithm(String input, String output, int k, int firstLine, int lastLine, boolean EUCS,
-			boolean LEAF) throws IOException {
+	public void runAlgorithm(String input, String output, int k, int firstLine, int lastLine, boolean EUCS) throws IOException {
 		// reset maximum
 		MemoryLogger.getInstance().reset();
 
 		this.firstLine = firstLine;
 		writer = new BufferedWriter(new FileWriter(output));
 		EUCS_PRUNING = EUCS;
-		LEAF_PRUNING = LEAF;
-		boolean firstTime = (mapEUCSLeaf == null);
+		boolean firstTime = (mapEUCS == null);
 		startTimestamp = System.currentTimeMillis();
 		BufferedReader myInput = null;
 		String thisLine;
 		kItemsets = new PriorityQueue<Itemset>();
 		if (firstTime) {
-			mapEUCSLeaf = new HashMap<Integer, Map<Integer, PairItem>>();
+			mapEUCS = new HashMap<Integer, Map<Integer, PairItem>>();
 			mapItemToUtilityList = new HashMap<Integer, UtilityList>();
 			totalDBUtility = 0;
 			mapItemToTWU = new HashMap<Integer, Long>();
 			mapItemToUtility = new HashMap<Integer, Integer>();
 			this.k = k;
+			mapLeafMAP = new HashMap<Integer, Map<Integer, Long>>();
+			leafPruneUtils = new PriorityQueue<Long>();
 		}
 		int tid = 0;
 		try {
@@ -182,47 +184,69 @@ public class AlgoTopKINC_EUCS {
 							return o1.item-o2.item;
 						}
 					});
-//						// convert item to integer
-//						Integer item = arrayItems[i];
-//						Integer utility = arrayUtilities[i];
-//						// get the current TWU of that item
-//						Long twu = mapItemToTWU.get(item);
-//						Integer getedUtility = mapItemToUtility.get(item);
-//						// add the utility of the item in the current transaction to its twu
-//						if (twu == null) {
-//							twu = (long)transactionUtility;
-//							getedUtility = utility;
-//							UtilityList newUL = new UtilityList(item);
-//							Element element = new Element(tid, utility, 0);
-//							newUL.addElement(element);
-//							mapItemToUtilityList.put(item, newUL);
-//
-//						} else {
-//							Element element = new Element(tid, utility, 0);
-//							UtilityList uLItem = mapItemToUtilityList.get(item);
-//							uLItem.addElement(element);
-//							mapItemToUtilityList.put(item, uLItem);
-//							twu = twu + transactionUtility;
-//							getedUtility = getedUtility + utility;
-//						}
-//						mapItemToTWU.put(item, twu);
-//						mapItemToUtility.put(item, getedUtility);
-//						// EUCS
-//						Map<Integer, Long> mapEUCSItem = mapEUCS.get(item);
-//						if (mapEUCSItem == null) {
-//							mapEUCSItem = new HashMap<Integer, Long>();
-//							mapEUCS.put(item, mapEUCSItem);
-//						}
-//						for (int j = i + 1; j < arrayUtilities.length; j++) {
-//							int ItemAfter = arrayItems[j];
-//							Long twuSum = mapEUCSItem.get(ItemAfter);
-//							if (twuSum == null) {
-//								mapEUCSItem.put(ItemAfter, (long)transactionUtility);
-//							} else {
-//								mapEUCSItem.put(ItemAfter, twuSum + transactionUtility);
-//							}
-//						}
-//					}
+					for (int i = 0; i < transactionItems.size(); i++) {
+						Item itemObjI = transactionItems.get(i);
+						int itemI = itemObjI.item;
+						int utilityI = itemObjI.utility;
+						Long twu = mapItemToTWU.get(itemI);
+						Integer getedUtility = mapItemToUtility.get(itemI);
+						if (twu == null) {
+							twu = (long)transactionUtility;
+							getedUtility = utilityI;
+							UtilityList newUL = new UtilityList(itemI);
+							Element element = new Element(tid, utilityI, 0);
+							newUL.addElement(element);
+							mapItemToUtilityList.put(itemI,newUL);
+
+						} else {
+							Element element = new Element(tid, utilityI, 0);
+							UtilityList uLItem = mapItemToUtilityList.get(itemI);
+							uLItem.addElement(element);
+							mapItemToUtilityList.put(itemI, uLItem);
+							twu = twu + transactionUtility;
+							getedUtility = getedUtility + utilityI;
+						}
+						mapItemToTWU.put(itemI, twu);
+						mapItemToUtility.put(itemI, getedUtility);
+						// EUCS
+						Map<Integer, PairItem> mapEUCSItem = mapEUCS.get(itemI);
+						if (mapEUCSItem == null) {
+							mapEUCSItem = new HashMap<Integer, PairItem>();
+							mapEUCS.put(itemI, mapEUCSItem);
+						}
+						for (int j = i + 1; j < transactionItems.size(); j++) {
+							Item itemObjJ = transactionItems.get(i);
+							int ItemAfter = itemObjJ.item;
+							PairItem pairItem = mapEUCSItem.get(ItemAfter);
+							if (pairItem == null) {
+								pairItem = new PairItem();
+								pairItem.twu = transactionUtility;
+								pairItem.utility =  utilityI+itemObjJ.utility;								
+							} else {
+								pairItem.twu = pairItem.twu+transactionUtility;
+								pairItem.utility =  pairItem.utility+utilityI+itemObjJ.utility;							
+							}
+							mapEUCSItem.put(ItemAfter,pairItem);
+						}
+						//LEAF
+						Map<Integer, Long> mapLeafItem = mapLeafMAP.get(itemI);
+						int cutil = (int) utilityI;
+						if (mapLeafItem == null) {
+							mapLeafItem = new HashMap<Integer, Long>();
+							mapLeafMAP.put(itemI, mapLeafItem);
+						}
+						for (int j = i - 1; j >= 0; j--) {
+							Item itemObjJ = transactionItems.get(i);
+							Long leafItem = mapLeafItem.get(itemObjJ.item);
+							if (leafItem == null) {
+								leafItem = 0l;
+							}
+							cutil+=itemObjJ.utility;
+							leafItem += cutil;
+							mapLeafItem.put(itemObjJ.item,leafItem);
+						}
+						
+					}			
 					totalDBUtility += transactionUtility;
 				}
 				tid++;
@@ -264,21 +288,19 @@ public class AlgoTopKINC_EUCS {
 				}
 			}
 		}
-//		if (firstTime) {
-//			if (k > listAllItemIntegers.size()) {
-//				min_utility = 1;
-//			} else {
-//				int itemk = listAllItemIntegers.get(k - 1);
-//				min_utility = mapItemToUtility.get(itemk);
-//			}
-//		} else {
-//			if (k > listAllItemIntegers.size()) {
-//				min_utility = 1;
-//			} else {
-//				int itemk = listAllItemIntegers.get(k - 1);
-//				min_utility = mapItemToUtility.get(itemk);
-//			}
-//		}
+		
+		
+		List<Integer> listAllItem = new ArrayList<>(mapItemToUtilityList.keySet());
+		listAllItem.sort(new Comparator<Integer>() {
+			@Override
+			public int compare(Integer o1, Integer o2) {
+				// TODO Auto-generated method stub
+				return o1-o2;
+			}
+		});
+		raisingThresholdLeaf(listAllItem);
+		
+		
 		first_min_utility = min_utility;
 		List<UtilityList> listOfUtilityLists = new ArrayList<UtilityList>();
 		for (Entry<Integer, UtilityList> entry : mapItemToUtilityList.entrySet()) {
@@ -286,7 +308,6 @@ public class AlgoTopKINC_EUCS {
 				listOfUtilityLists.add(entry.getValue());
 			}
 		}
-
 		Collections.sort(listOfUtilityLists, new Comparator<UtilityList>() {
 			public int compare(UtilityList o1, UtilityList o2) {
 				return compareItems(o1.item, o2.item);
@@ -305,11 +326,6 @@ public class AlgoTopKINC_EUCS {
 			}
 			ul.sumRutils = newRemain;
 		}
-//		for (UtilityList ul : listOfUtilityLists) {
-//			System.out.println(ul.toString());
-//		}
-
-		// check the memory usage
 		MemoryLogger.getInstance().checkMemory();
 		System.out.println("mining... " + min_utility);
 		// Mine the database recursively
@@ -334,6 +350,102 @@ public class AlgoTopKINC_EUCS {
 		int compare = (int) (mapItemToTWU.get(item1) - mapItemToTWU.get(item2));
 		// if the same, use the lexical order otherwise use the TWU
 		return (compare == 0) ? item1 - item2 : compare;
+	}
+	public void addToLeafPruneUtils(long value) {
+		if (leafPruneUtils.size() < k)
+			leafPruneUtils.add(value);
+		else if (value > leafPruneUtils.peek()) {
+			leafPruneUtils.add(value);
+			do {
+				leafPruneUtils.poll();
+			} while (leafPruneUtils.size() > k);
+		}
+	}
+	
+	public int getTWUindex(int item, List<UtilityList> ULs) {
+		for (int i = ULs.size() - 1; i >= 0; i--)
+			if (ULs.get(i).item == item)
+				return i;
+		return -1;
+	}
+	
+	public void raisingThresholdLeaf(List<Integer> AllItemToUtilityList) {//all sort item in UL
+		long LIU = 0L;
+		// LIU-Exact
+		for (Entry<Integer, Map<Integer, Long>> entry : mapLeafMAP.entrySet()) {
+			for (Entry<Integer, Long> entry2 : entry.getValue().entrySet()) {
+				LIU = entry2.getValue();
+				if (LIU >= min_utility) {
+					addToLeafPruneUtils(LIU);
+				}
+			}
+		}
+		
+
+		
+		List<Integer> keySet = new ArrayList<>(mapLeafMAP.keySet());
+		keySet.sort(new Comparator<Integer>() {
+			@Override
+			public int compare(Integer o1, Integer o2) {
+				// TODO Auto-generated method stub
+				return o1-o2;
+			}
+		});
+		for (int i = 0; i < keySet.size(); i++) {
+			int key = keySet.get(i);
+			Map<Integer, Long> value = mapLeafMAP.get(key);
+			List<Integer> keySet2 = new ArrayList<>(value.keySet());
+			keySet2.sort(new Comparator<Integer>() {
+				@Override
+				public int compare(Integer o1, Integer o2) {
+					// TODO Auto-generated method stub
+					return o1-o2;
+				}
+			});
+			for (int j = 0; j < keySet2.size(); j++) {
+				int key2 = keySet2.get(j);
+				long value2 = value.get(key2);
+				LIU = value2;
+				if(LIU>min_utility) {
+					
+				}
+			}
+		}
+		// LIU-LB
+//		for (Entry<Integer, Map<Integer, Long>> entry : mapLeafMAP.entrySet()) {
+//			for (Entry<Integer, Long> entry2 : entry.getValue().entrySet()) {
+//				value = entry2.getValue();
+//				if (value >= min_utility) {
+//					
+//					int end = entry.getKey() + 1;
+//					int st = entry2.getKey();
+//					long value2 = 0L;				
+//					for (int i = st + 1; i < end - 1; i++) {
+//						value2 = value - ULs.get(i).getUtils();
+//						if (value2 >= minUtility)
+//							addToLeafPruneUtils(value2);
+//						for (int j = i + 1; j < end - 1; j++) {
+//							value2 = value - ULs.get(i).getUtils() - ULs.get(j).getUtils();
+//							if (value2 >= minUtility)
+//								addToLeafPruneUtils(value2);
+//							for (int k = j + 1; k + 1 < end - 1; k++) {
+//								value2 = value - ULs.get(i).getUtils() - ULs.get(j).getUtils() - ULs.get(k).getUtils();
+//								if (value2 >= minUtility)
+//									addToLeafPruneUtils(value2);
+//							}
+//						}
+//					}
+//				}
+//			}
+//		}
+		for (Entry<Integer, UtilityList> entry : mapItemToUtilityList.entrySet()) {
+			long utilitySingleItem = entry.getValue().sumIutils;
+			if(utilitySingleItem>min_utility) {
+				addToLeafPruneUtils(utilitySingleItem);
+			}
+		}		
+		if ((leafPruneUtils.size() > k - 1) && (leafPruneUtils.peek() > min_utility))
+			min_utility = leafPruneUtils.peek();
 	}
 
 	/**
@@ -372,31 +484,27 @@ public class AlgoTopKINC_EUCS {
 				// after X according to the ascending order
 				for (int j = i + 1; j < ULs.size(); j++) {
 					UtilityList Y = ULs.get(j);
-
+					int smaller;
+					int bigger;
+					if(X.item<Y.item) {
+						smaller = X.item;
+						bigger = Y.item;
+					}else {
+						smaller = Y.item;
+						bigger = X.item;
+					}
 					// ======================== NEW OPTIMIZATION USED IN FHM
-					Map<Integer, Long> mapTWUF = mapEUCS.get(X.item);
-					Map<Integer, Long> mapTWUFRev = mapEUCS.get(Y.item);
+					Map<Integer, PairItem> mapTWUF = mapEUCS.get(smaller);
 					long SumEUCS = 0l;
 					if (mapTWUF != null) {
-						Long twuF = mapTWUF.get(Y.item);
+						PairItem twuF = mapTWUF.get(bigger);
 						if (twuF != null) {
-							SumEUCS += twuF;
-						}
-					}
-					if (mapTWUFRev != null) {
-						Long twuF = mapTWUFRev.get(X.item);
-						if (twuF != null) {
-							SumEUCS += twuF;
+							SumEUCS += twuF.twu;
 						}
 					}
 					if (SumEUCS < min_utility) {
 						continue;
 					}
-
-					// =========================== END OF NEW OPTIMIZATION
-
-					// we construct the extension pXY
-					// and add it to the list of extensions of pX
 					UtilityList temp = construct(pUL, X, Y);
 					if (temp != null) {
 						exULs.add(temp);
@@ -553,20 +661,6 @@ public class AlgoTopKINC_EUCS {
 		System.out.println(" totalDBUtility : " + totalDBUtility);
 		System.out.println(" Candidate count : " + candidateCount);
 
-		if (DEBUG) {
-			int pairCount = 0;
-			double maxMemory = getObjectSize(mapEUCS);
-			for (Entry<Integer, Map<Integer, Long>> entry : mapEUCS.entrySet()) {
-				maxMemory += getObjectSize(entry.getKey());
-				for (Entry<Integer, Long> entry2 : entry.getValue().entrySet()) {
-					pairCount++;
-					maxMemory += getObjectSize(entry2.getKey()) + getObjectSize(entry2.getValue());
-				}
-			}
-			System.out.println("CMAP size " + maxMemory + " MB");
-			System.out.println("PAIR COUNT " + pairCount);
-		}
-		System.out.println("===================================================");
 
 //		Iterator<Itemset> iter = kItemsets.iterator();
 //		while (iter.hasNext()) {
